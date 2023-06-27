@@ -1,0 +1,86 @@
+version: '3'
+
+services:
+  primerN:
+    image: cassandra:latest
+    container_name: cassandra-primerN
+    ports:
+      - "9055:9042"
+    hostname: primerN
+    environment:
+      - MAX_HEAP_SIZE=256M
+      - HEAP_NEWSIZE=128M
+      - CASSANDRA_SEEDS=primerN,segundoN,tercerN
+      - CASSANDRA_CLUSTER_NAME=Test Cluster
+      - CASSANDRA_DC=datacenter1
+      - CASSANDRA_RACK=rack1
+    restart: always
+    volumes:
+      - ./data/primerN:/var/lib/cassandra
+      - ./init-scripts:/docker-entrypoint-initdb.d
+      - ./nodosAuth/primerN/cqlshrc:/root/.cassandra/cqlshrc
+    healthcheck:
+      test: ["CMD", "cqlsh", "-u cassandra", "-p cassandra", "-e", "describe keyspaces"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+
+  segundoN:
+    image: cassandra:latest
+    container_name: cassandra-segundoN
+    hostname: segundoN
+    ports:
+      - "9056:9042"
+    environment:
+      - "MAX_HEAP_SIZE=256M"
+      - "HEAP_NEWSIZE=128M"
+      - "CASSANDRA_SEEDS=primerN,segundoN,tercerN"
+      - "CASSANDRA_CLUSTER_NAME=Test Cluster"
+      - "CASSANDRA_DC=datacenter1"
+      - "CASSANDRA_RACK=rack2"
+    restart: always
+    volumes:
+      - ./data/segundoN:/var/lib/cassandra
+      - ./nodosAuth/segundoN/cqlshrc:/root/.cassandra/cqlshrc
+    healthcheck:
+      test: ["CMD", "cqlsh", "-u cassandra", "-p cassandra" ,"-e describe keyspaces"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+
+  tercerN:
+    image: cassandra:latest
+    container_name: cassandra-tercerN
+    hostname: tercerN
+    ports:
+      - "9057:9042"
+    environment:
+      - "MAX_HEAP_SIZE=256M"
+      - "HEAP_NEWSIZE=128M"
+      - "CASSANDRA_SEEDS=primerN,segundoN,tercerN"
+      - "CASSANDRA_CLUSTER_NAME=Test Cluster"
+      - "CASSANDRA_DC=datacenter1"
+      - "CASSANDRA_RACK=rack3"
+    restart: always
+    volumes:
+      - ./data/tercerN:/var/lib/cassandra
+      - ./nodosAuth/tercerN/cqlshrc:/root/.cassandra/cqlshrc
+    healthcheck:
+      test: ["CMD", "cqlsh", "-u cassandra", "-p cassandra" ,"-e describe keyspaces"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+
+  cassandra-load-keyspace:
+    container_name: cassandra-load-keyspace
+    image: cassandra:latest
+    depends_on:
+      primerN:
+        condition: service_healthy
+      segundoN:
+        condition: service_healthy
+      tercerN:
+        condition: service_healthy
+    volumes:
+      - ./init-scripts:/docker-entrypoint-initdb.d
+    command: /bin/bash -c "/docker-entrypoint-initdb.d/load-keyspace.sh"
